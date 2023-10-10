@@ -17,6 +17,8 @@ connection.connect((err) => {
 app.use(bodyParser.json());
 
 app.post('/users', (req, res) => {
+    const requestDate = req.headers['request-date'];
+    
     const nameRE = /^[a-zA-Z0-9]+$/;
     const mailRE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
@@ -63,7 +65,7 @@ app.post('/users', (req, res) => {
             const response = {
                 data: {
                     user: user,
-                    "request-date": new Date().toUTCString()
+                    "request-date": requestDate
                 }
             };
             res.status(200).json(response);
@@ -72,7 +74,9 @@ app.post('/users', (req, res) => {
 });
 
 app.get('/users', (req, res) => {
-    const { id } = req.body;
+    const id = parseInt(req.query.id, 10);
+    const requestDate = req.headers['request-date'];
+
     connection.query(`SELECT * FROM user WHERE id = ?`, [id], (error, results) => {
         if (error) {
             res.status(400).json({ error: 'Error querying the database' });
@@ -90,7 +94,7 @@ app.get('/users', (req, res) => {
             const response = {
                 data: {
                     user: user,
-                    "request-date": new Date().toUTCString()
+                    "request-date": requestDate
                 }
             };
             res.status(200).json(response);
@@ -98,8 +102,8 @@ app.get('/users', (req, res) => {
     });
 });
 
-const PORT = process.env.PORT || 80;
-
+//const PORT = process.env.PORT || 80;
+const PORT = 3000;
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
