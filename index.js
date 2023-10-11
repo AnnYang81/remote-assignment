@@ -16,9 +16,17 @@ connection.connect((err) => {
 
 app.use(bodyParser.json());
 
+app.get('/',(req,res)=>{
+    res.send("HELLO!");
+});
+
+app.get('/healthcheck',(req,res)=>{
+    res.send('OK');
+});
+
 app.post('/users', (req, res) => {
     const requestDate = req.headers['request-date'];
-    
+
     const nameRE = /^[a-zA-Z0-9]+$/;
     const mailRE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
@@ -51,24 +59,40 @@ app.post('/users', (req, res) => {
         if (rows.length > 0) {
             return res.status(409).json({ "error": "Email already exists." });
         }
-        //從資料庫中找出最大的id+1
+
+        // 從資料庫中找出最大的 id
         connection.query('SELECT MAX(id) AS max_num FROM user', (err, results) => {
             if (err) {
                 console.error('Error querying MySQL:', err);
-                return;
+                return res.status(500).json({ "error": "Failed to retrieve user ID." });
             }
-            const user = {
-                id: results[0].max_num + 1,
-                name: name,
-                email: email
-            };
-            const response = {
-                data: {
-                    user: user,
-                    "request-date": requestDate
+
+            const newid = results[0].max_num + 1;
+
+            const insertQuery = 'INSERT INTO user (id, name, email, password) VALUES (?, ?, ?, ?)';
+            const values = [newid, name, email, password];
+
+            connection.query(insertQuery, values, (err, results) => {
+                if (err) {
+                    console.error('Error inserting data into MySQL:', err);
+                    return res.status(500).json({ "error": "Failed to insert data into the database." });
                 }
-            };
-            res.status(200).json(response);
+
+                const insertuser = {
+                    id: newid,
+                    name: name,
+                    email: email
+                };
+
+                const response = {
+                    data: {
+                        user: insertuser,
+                        "request-date": requestDate
+                    }
+                };
+
+                res.status(200).json(response);
+            });
         });
     });
 });
@@ -76,7 +100,6 @@ app.post('/users', (req, res) => {
 app.get('/users', (req, res) => {
     const id = parseInt(req.query.id, 10);
     const requestDate = req.headers['request-date'];
-
     connection.query(`SELECT * FROM user WHERE id = ?`, [id], (error, results) => {
         if (error) {
             res.status(400).json({ error: 'Error querying the database' });
@@ -94,7 +117,7 @@ app.get('/users', (req, res) => {
             const response = {
                 data: {
                     user: user,
-                    "request-date": requestDate
+                    "request-date": requestDate //"request-date": new Date().toUTCString()
                 }
             };
             res.status(200).json(response);
@@ -102,8 +125,39 @@ app.get('/users', (req, res) => {
     });
 });
 
-//const PORT = process.env.PORT || 80;
-const PORT = 3000;
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+app.get('/users', (req, res) => {
+    const { id } = req.body;
+    connection.query(`SELECT * FROM user WHERE id = ?`, [id], (error, results) => {
+        if (error) {
+            res.status(400).json({ error: 'Error querying the database' });
+            throw error;
+        }
+
+        if (results.length === 0) {
+            res.status(403).json({ error: 'User Not Existing' });
+        } else {
+            const user = {
+                id: results[0].id,
+                name: results[0].name,
+                email: results[0].email
+            };
+            const response = {
+                data: {
+                    user: user,
+                    "request-date": new Date().toUTCString()
+                }
+            };
+            res.status(200).json(response);
+        }
+    });
 });
+
+app.listen(3000, () => {
+    console.log('Server is running on port 3000');
+});
+
+// const PORT = process.env.PORT || 3000;
+
+// app.listen(PORT, () => {
+//     console.log(`Server is running on port ${PORT}`);
+// });
